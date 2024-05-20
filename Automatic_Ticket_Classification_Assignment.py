@@ -143,9 +143,12 @@ print('df.shape after dropna =',df.shape)
 # * Extract the POS tags of the lemmatized text and remove all the words which have tags other than NN[tag == "NN"].
 #
 
+# %% [markdown]
+# #### Convert data types
+
 # %%
-# df = df.convert_dtypes()
-# df.info()
+df = df.convert_dtypes()
+df.info()
 
 # %% [markdown]
 # #### Make the text lowercase
@@ -159,15 +162,20 @@ df['clean_complaints'] = df['complaint_what_happened'].str.lower()
 # #### Create function to extract regex
 
 # %%
-def extract_regex(df, new_df, regex):
-    # Create a new DataFrame that contains rows that have square brackets and its text
-    new_df = pd.DataFrame(df[df['clean_complaints'].str.contains(regex, regex = True)]['clean_complaints'])
-
-    # Extract the square brackets and its text from the 'clean_complaints' column and store it in a new column 'extracted'
-    new_df['extracted'] = new_df['clean_complaints'].apply(lambda x: re.findall(regex, x))
-
+def extract_regex(df, new_df, regexes):
+    if not isinstance(regexes, list):
+        regexes = [regexes]
+    new_df = pd.DataFrame()
+    for reg in regexes:
+        if new_df.empty:
+            new_df = pd.DataFrame(df[df['clean_complaints'].str.contains(reg, regex=True)]['clean_complaints'])            
+        else:
+            new_df = pd.concat([new_df, pd.DataFrame(df[df['clean_complaints'].str.contains(reg, regex=True)]['clean_complaints'])])
+        
+    # Apply the regular expressions to the DataFrame
+    new_df['extracted'] = new_df['clean_complaints'].apply(lambda x: [match for regex in regexes for match in re.findall(regex, x)])
     # Display the 'extracted' column
-    display(pd.DataFrame((new_df['extracted'])))
+    return pd.DataFrame((new_df['extracted']))
 
 
 # %% [markdown]
@@ -179,11 +187,9 @@ regex = r'(\[.*?\])'
 extract_regex(df, df_square_brackets, regex)
 
 # %%
-df['clean_complaints'] = df['clean_complaints'].str.replace(r'(\[.*?\])', '', regex = True)
+df['clean_complaints'] = df['clean_complaints'].str.replace(regex, '', regex = True)
 
 # %%
-df_square_brackets = pd.DataFrame()
-regex = r'(\[.*?\])'
 extract_regex(df, df_square_brackets, regex)
 
 # %% [markdown]
@@ -196,11 +202,9 @@ extract_regex(df, df_punctuation, regex)
 
 # %%
 # Remove punctuation from 'clean_complaints'
-df['clean_complaints'] = df['clean_complaints'].str.replace(f'[{string.punctuation}]', '', regex=True)
+df['clean_complaints'] = df['clean_complaints'].str.replace(regex, '', regex=True)
 
 # %%
-df_punctuation = pd.DataFrame()
-regex = f'[{string.punctuation}]'
 extract_regex(df, df_punctuation, regex)
 
 # %% [markdown]
@@ -211,54 +215,34 @@ extract_regex(df, df_punctuation, regex)
 
 # %%
 # Create a new DataFrame that contains rows that have square brackets and its text
-df_word_num =pd.DataFrame(df[df['clean_complaints'].str.contains(r'\b[A-Za-z]+\d+\w*\b', regex=True) | df['clean_complaints'].str.contains(r'\b\d+[A-Za-z]+\w*\b', regex=True)]['clean_complaints'])
+df_word_num = pd.DataFrame()
 
 # Define the regular expressions
-regexes = [r'\b[A-Za-z]+\d+\w*\b', r'\b\d+[A-Za-z]+\w*\b']
+regex = [r'\b[A-Za-z]+\d+\w*\b', r'\b\d+[A-Za-z]+\w*\b']
 
-# Apply the regular expressions to the DataFrame
-df_word_num['extracted'] = df_word_num['clean_complaints'].apply(lambda x: [match for regex in regexes for match in re.findall(regex, x)])
-
-# Display the 'extracted' column
-display(pd.DataFrame(df_word_num['extracted']).head(30))
+extract_regex(df, df_word_num, regex).head(30)
 
 # %% [markdown]
 # Filter words containing numbers in between
 
 # %%
 # Create a new DataFrame that contains rows that have square brackets and its text
-df_word_num =pd.DataFrame(df[df['clean_complaints'].str.contains(r'\b[A-Za-z]+\d+[A-Za-z]+\b', regex=True)])
+df_word_num = pd.DataFrame()
 
 # Define the regular expressions
-regexes = [r'\b[A-Za-z]+\d+[A-Za-z]+\b']
+regex = r'\b[A-Za-z]+\d+[A-Za-z]+\b'
 
-# Apply the regular expressions to the DataFrame
-df_word_num['extracted'] = df_word_num['clean_complaints'].apply(lambda x: [match for regex in regexes for match in re.findall(regex, x)])
-
-
-# Display the 'extracted' column
-display(pd.DataFrame(df_word_num['extracted']).head(10))
+extract_regex(df, df_word_num, regex).head(10)
 
 # %% [markdown]
 # Remove words containing numbers in between
 
 # %%
 # Remove punctuation from 'clean_complaints'
-df['clean_complaints'] = df['clean_complaints'].str.replace(r'\b[A-Za-z]+\d+[A-Za-z]+\b', '', regex=True)
+df['clean_complaints'] = df['clean_complaints'].str.replace(regex, '', regex=True)
 
 # %%
-# Create a new DataFrame that contains rows that have square brackets and its text
-df_word_num =pd.DataFrame(df[df['clean_complaints'].str.contains(r'\b[A-Za-z]+\d+[A-Za-z]+\b', regex=True)])
-
-# Define the regular expressions
-regexes = [r'\b[A-Za-z]+\d+[A-Za-z]+\b']
-
-# Apply the regular expressions to the DataFrame
-df_word_num['extracted'] = df_word_num['clean_complaints'].apply(lambda x: [match for regex in regexes for match in re.findall(regex, x)])
-
-
-# Display the 'extracted' column
-display(pd.DataFrame(df_word_num['extracted']).head(10))
+extract_regex(df, df_word_num, regex).head(10)
 
 # %% [markdown]
 # #### Clean space
@@ -280,6 +264,32 @@ df['clean_complaints'] = df['clean_complaints'].apply(lambda x: '\n'.join(' '.jo
 # %%
 print(df['clean_complaints'][1])
 
+# %% [markdown]
+# #### Drop empty rows
+
+# %%
+# df shape before dropna
+print('df.shape before dropna =',df.shape)
+#Remove all rows where complaints column is nan
+df.dropna(subset='clean_complaints', inplace=True)
+# Drop rows where column 'clean_complaints' is equal to ''
+df = df[df['clean_complaints'] != '']
+# df shape after dropna
+print('df.shape after dropna =',df.shape)
+# reset index
+df.reset_index(drop=True, inplace=True)
+
+# %% [markdown]
+# #### Drop duplicates
+
+# %%
+# df shape before drop_duplicates
+print('df.shape before drop_duplicates =',df.shape)
+# Drop duplicate rows based on column 'clean_complaints'
+df = df.drop_duplicates(subset='clean_complaints')
+# df shape after drop_duplicates
+print('df.shape after drop_duplicates =',df.shape)
+
 
 # %% [markdown]
 # #### Lemmatize the texts
@@ -292,31 +302,54 @@ def lemmatize(sent):
 
 
 # %%
-#Create a dataframe('df_clean') that will have only the complaints and the lemmatized complaints 
-df_clean = pd.DataFrame()
+import os
+if os.path.isfile('df_clean.csv'):
+    # load df_clean
+    df_clean = pd.read_csv('df_clean.csv')
+    if 'Unnamed: 0' in df_clean.columns:
+        df_clean.drop('Unnamed: 0', axis=1, inplace=True)
+else:    
+    #Create a dataframe('df_clean') that will have only the complaints and the lemmatized complaints 
+    df_clean = pd.DataFrame()
 
-# initialize 'complaints' column
-df_clean['complaints'] = df['clean_complaints']
+    # initialize 'complaints' column
+    df_clean['complaints'] = df['clean_complaints']
 
-# process 'complaints_lemmatized' column
-df_clean['complaints_lemmatized'] = pd.DataFrame(df_clean['complaints'].apply(lambda x: '\n'.join(lemmatize(sent) for sent in x.split('\n'))))
+    # process 'complaints_lemmatized' column
+    df_clean['complaints_lemmatized'] = pd.DataFrame(df_clean['complaints'].apply(lambda x: '\n'.join(lemmatize(sent) for sent in x.split('\n'))))
 
+    # Store df_clean for later use
+    df_clean.to_csv('df_clean.csv', index=False)
 
 # %%
-print(df_clean['complaints_lemmatized'][1])
+print(df_clean['complaints_lemmatized'][0])
 
 # %%
 df_clean
 
 # %%
 #Write your function to extract the POS tags 
+  
+if os.path.isfile('df_clean_v1.csv'):
+    # load df_clean
+    df_clean = pd.read_csv('df_clean_v1.csv')
+    if 'Unnamed: 0' in df_clean.columns:
+      df_clean.drop('Unnamed: 0', axis=1, inplace=True)
+else:
+  # Make sure you have the necessary NLTK data downloaded
+  nltk.download('averaged_perceptron_tagger')
 
-def pos_tag(text):
-  # write your code here
+  def pos_tag(text):
+    # write your code here
+    tokens = nltk.word_tokenize(text)
+    pos_tags = nltk.pos_tag(tokens)
+    #this column should contain lemmatized text with all the words removed which have tags other than NN[tag == "NN"].
+    # return lemmatize(' '.join([word for word, tag in pos_tags if tag =='NN']))
+    return lemmatize(' '.join([word for word, tag in pos_tags if tag.startswith('NN')]))
 
-
-
-df_clean["complaint_POS_removed"] =  #this column should contain lemmatized text with all the words removed which have tags other than NN[tag == "NN"].
+  df_clean['complaint_POS_removed'] = pd.DataFrame(df_clean['complaints'].apply(lambda x: '\n'.join(pos_tag(sent) for sent in x.split('\n'))))
+  # Store df_clean2 for later use
+  df_clean.to_csv('df_clean.csv', index=False)
 
 
 # %%
@@ -338,11 +371,51 @@ df_clean
 # %%
 # Write your code here to visualise the data according to the 'Complaint' character length
 
+# Create a new column 'complaint_length' that contains the length of each complaint
+df_clean['complaint_length'] = df_clean['complaints_lemmatized'].apply(len)
+
+# Set the figure size
+plt.figure(figsize=(13, 5))
+
+# Plot a histogram of the complaint lengths
+sns.histplot(df_clean['complaint_length'], edgecolor='white', bins=50, alpha=0.55, kde=True)
+plt.xlabel('Complaint Length')
+plt.ylabel('Frequency')
+plt.title('Distribution of Complaint Lengths')
+plt.show()
+
+# %% [markdown]
+# Distribution of complaint lengths is strongly right-skewed, indicating that most complaints are short, but there are a few very long ones that extend the range significantly.
+
 # %% [markdown]
 # #### Find the top 40 words by frequency among all the articles after processing the text.
 
 # %%
+# Get the list of English stop words
+stop_words = nlp.Defaults.stop_words
+
+# Replace NaN values with an empty string
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
+
+# Create a new column with stop words removed
+df_clean['complaint_POS_removed_clean'] = df_clean['complaint_POS_removed'].apply(lambda x: ' '.join(word for word in x.split() if word not in stop_words))
+
+
+# %%
 #Using a word cloud find the top 40 words by frequency among all the articles after processing the text
+
+from wordcloud import WordCloud
+# Combine all the complaints into a single string
+all_complaints = ' '.join(df_clean['complaint_POS_removed_clean'])
+
+# Create a WordCloud object
+wordcloud = WordCloud(width=800, height=400, max_words=40).generate(all_complaints)
+
+# Display the word cloud
+plt.figure(figsize=(10, 5))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.show()
 
 
 # %%
