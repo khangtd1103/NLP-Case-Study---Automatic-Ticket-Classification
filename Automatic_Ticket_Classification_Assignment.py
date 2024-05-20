@@ -305,8 +305,6 @@ print('df.shape after drop_duplicates =',df.shape)
 if os.path.isfile('df.csv'):
   # load df_clean
   df = pd.read_csv('df.csv')
-  if 'Unnamed: 0' in df.columns:
-    df.drop('Unnamed: 0', axis=1, inplace=True)
 else:
     df.to_csv('df.csv', index=False)
 
@@ -326,8 +324,6 @@ def lemmatize(sent):
 if os.path.isfile('df_clean.csv'):
     # load df_clean
     df_clean = pd.read_csv('df_clean.csv')
-    if 'Unnamed: 0' in df_clean.columns:
-      df_clean.drop('Unnamed: 0', axis=1, inplace=True)
 else:
     #tag remote collab
     df = pd.read_csv('df.csv')
@@ -368,8 +364,6 @@ if os.path.isfile('df_clean_v1.csv'):
   df = pd.read_csv('df.csv')
   # load df_clean
   df_clean = pd.read_csv('df_clean_v1.csv')
-  if 'Unnamed: 0' in df_clean.columns:
-    df_clean.drop('Unnamed: 0', axis=1, inplace=True)
 else:
   #tag remote collab
   df = pd.read_csv('df.csv')
@@ -394,10 +388,10 @@ df_clean
 
 # %%
 df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].str.replace(r'xxxx*','', regex =True)
-
-# %%
 # Replace NaN values with an empty string
 df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
+
+# %%
 # Removing leading/trailing whitespace and empty sentences
 df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].apply(lambda x: '\n'.join(sent.strip() for sent in x.split('\n') if sent.strip() != ''))
 # Removing extra spaces between words.
@@ -447,6 +441,8 @@ stop_words = nlp.Defaults.stop_words
 
 # Create a new column with stop words removed
 df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].apply(lambda x: ' '.join(word for word in x.split() if word not in stop_words))
+# Replace NaN values with an empty string
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
 
 
 # %%
@@ -474,8 +470,6 @@ if os.path.isfile('df_clean_v2.csv'):
   df = pd.read_csv('df.csv')
   # load df_clean
   df_clean = pd.read_csv('df_clean_v2.csv')
-  if 'Unnamed: 0' in df_clean.columns:
-    df_clean.drop('Unnamed: 0', axis=1, inplace=True)
 else:
     #tag remote collab
     df = pd.read_csv('df.csv')
@@ -487,6 +481,8 @@ else:
 
     # Apply the function to the 'complaint_POS_removed' column
     df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].apply(remove_PRON)
+    # Replace NaN values with an empty string
+    df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
 
     df_clean.to_csv('df_clean_v2.csv', index=False)
 
@@ -502,40 +498,66 @@ else:
 # Source: `https://www.analyticsvidhya.com/blog/2021/09/what-are-n-grams-and-how-to-implement-them-in-python/`
 
 # %%
-#Write your code here to find the top 30 unigram frequency among the complaints in the cleaned datafram(df_clean). 
-import collections
+#tag delete
+# Replace NaN values with an empty string
+df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
 
-# Assuming 'complaint_POS_removed_clean' is the column in df_clean that contains the cleaned complaints
-complaints = df_clean['complaint_POS_removed_clean'].str.split().sum()
+# %%
+#Write your code here to find the top 30 unigram frequency among the complaints in the cleaned dataframe(df_clean). 
+from nltk import ngrams, FreqDist
 
-# Count the frequency of each word
-word_counts = collections.Counter(complaints)
+# Replace NaN values with an empty string
+df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
 
-# Get the top 30 most common words
-top_30_words = word_counts.most_common(30)
+# Join all the complaints into a single string
+all_words = ' '.join(df_clean['Complaint_clean']).split()
 
-print(top_30_words)
+unigram_freq = FreqDist(all_words)
 
+# Create a DataFrame from the result of word_freq.most_common(30)
+df_unigram_freq = pd.DataFrame(unigram_freq.most_common(30), columns=['Unigram', 'Frequency'])
 
+display (df_unigram_freq)
 
 # %%
 #Print the top 10 words in the unigram frequency
-
-
+display(df_unigram_freq.head(10))
 
 # %%
 #Write your code here to find the top 30 bigram frequency among the complaints in the cleaned datafram(df_clean). 
 
+# Generate bigrams
+bigrams = ngrams(all_words, 2)
+
+bigram_freq = FreqDist(bigrams)
+
+# Create a DataFrame from the result of word_freq.most_common(30)
+df_bigram_freq = pd.DataFrame(bigram_freq.most_common(30), columns=['Bigram', 'Frequency'])
+
+display (df_bigram_freq)
+
 
 # %%
 #Print the top 10 words in the bigram frequency
+display(df_bigram_freq.head(10))
 
 # %%
 #Write your code here to find the top 30 trigram frequency among the complaints in the cleaned datafram(df_clean). 
 
+# Generate trigrams
+trigrams = ngrams(all_words, 3)
+
+trigram_freq = FreqDist(trigrams)
+
+# Create a DataFrame from the result of word_freq.most_common(30)
+df_trigram_freq = pd.DataFrame(trigram_freq.most_common(30), columns=['Trigram', 'Frequency'])
+
+display (df_trigram_freq)
+
 
 # %%
 #Print the top 10 words in the trigram frequency
+display(df_trigram_freq.head(10))
 
 # %% [markdown]
 # ## Feature Extraction
@@ -549,8 +571,7 @@ print(top_30_words)
 
 # %%
 #Write your code here to initialise the TfidfVectorizer 
-
-
+tfidf = TfidfVectorizer(max_df = 0.95, min_df = 2)
 
 # %% [markdown]
 # #### Create a document term matrix using fit_transform
@@ -560,7 +581,11 @@ print(top_30_words)
 
 # %%
 #Write your code here to create the Document Term Matrix by transforming the complaints column present in df_clean.
+dtm = tfidf.fit_transform(df_clean['Complaint_clean']) 
 
+
+# %%
+dtm.shape
 
 # %% [markdown]
 # ## Topic Modelling using NMF
@@ -586,17 +611,28 @@ from sklearn.decomposition import NMF
 
 # %%
 #Load your nmf_model with the n_components i.e 5
-num_topics = #write the value you want to test out
+num_topics = 5#write the value you want to test out
 
 #keep the random_state =40
-nmf_model = #write your code here
+nmf_model = NMF(n_components=num_topics, random_state =40) #write your code here
+H = nmf_model.fit_transform(dtm)
+
 
 # %%
-nmf_model.fit(dtm)
-len(tfidf.get_feature_names())
+W = nmf_model.fit(dtm)
+H = nmf_model.components_
+len(tfidf.get_feature_names_out())
 
 # %%
 #Print the Top15 words for each of the topics
+words = np.array(tfidf.get_feature_names_out())
+topic_words = pd.DataFrame(np.zeros((num_topics, 15)), index=[f'Topic {i + 1}' for i in range(num_topics)], columns=[f'Word {i + 1}' for i in range(15)]).astype(str)
+
+for i in range(num_topics):
+    ix = H[i].argsort()[::-1][:15]
+    topic_words.iloc[i] = words[ix]
+
+topic_words
 
 
 # %%
