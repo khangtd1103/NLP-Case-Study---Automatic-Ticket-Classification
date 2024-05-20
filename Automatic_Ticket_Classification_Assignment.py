@@ -60,6 +60,14 @@
 # ## Importing the necessary libraries
 
 # %%
+import tensorflow as tf
+# Check if GPU is available
+if tf.test.gpu_device_name():
+    print('GPU found')
+else:
+    print("No GPU found")
+
+# %%
 import json 
 import numpy as np
 import pandas as pd
@@ -76,6 +84,9 @@ import plotly.express as px
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from pprint import pprint
+
+import os
+
 
 # %% [markdown]
 # ## Loading the data
@@ -290,28 +301,37 @@ df = df.drop_duplicates(subset='clean_complaints')
 # df shape after drop_duplicates
 print('df.shape after drop_duplicates =',df.shape)
 
+# %%
+if os.path.isfile('df.csv'):
+  # load df_clean
+  df = pd.read_csv('df.csv')
+  if 'Unnamed: 0' in df.columns:
+    df.drop('Unnamed: 0', axis=1, inplace=True)
+else:
+    df.to_csv('df.csv', index=False)
+
 
 # %% [markdown]
 # #### Lemmatize the texts
 
 # %%
 #Write your function to Lemmatize the texts
-def lemmatize(sent):
+def lemmatize(sent):        
+    spacy.prefer_gpu()
     doc = nlp(sent)
     return ' '.join([token.lemma_ for token in doc])
 
 
 # %%
-import os
 if os.path.isfile('df_clean.csv'):
     # load df_clean
     df_clean = pd.read_csv('df_clean.csv')
     if 'Unnamed: 0' in df_clean.columns:
-        df_clean.drop('Unnamed: 0', axis=1, inplace=True)
-else:    
+      df_clean.drop('Unnamed: 0', axis=1, inplace=True)
+else:
     #tag remote collab
     df = pd.read_csv('df.csv')
-    
+
     #Create a dataframe('df_clean') that will have only the complaints and the lemmatized complaints 
     df_clean = pd.DataFrame()
 
@@ -337,24 +357,31 @@ def pos_tag(text):
     tokens = nltk.word_tokenize(text)
     pos_tags = nltk.pos_tag(tokens)
     #this column should contain lemmatized text with all the words removed which have tags other than NN[tag == "NN"].
-    # return lemmatize(' '.join([word for word, tag in pos_tags if tag =='NN']))
     return lemmatize(' '.join([word for word, tag in pos_tags if tag.startswith('NN')]))
 
 
 # %%
 #Write your function to extract the POS tags 
-  
+
 if os.path.isfile('df_clean_v1.csv'):
-    # load df_clean
-    df_clean = pd.read_csv('df_clean_v1.csv')
-    if 'Unnamed: 0' in df_clean.columns:
-      df_clean.drop('Unnamed: 0', axis=1, inplace=True)
+  #tag remote collab
+  df = pd.read_csv('df.csv')
+  # load df_clean
+  df_clean = pd.read_csv('df_clean_v1.csv')
+  if 'Unnamed: 0' in df_clean.columns:
+    df_clean.drop('Unnamed: 0', axis=1, inplace=True)
 else:
+  #tag remote collab
+  df = pd.read_csv('df.csv')
+  #tag remote collab
+  df_clean = pd.read_csv('df_clean.csv')
+
+  nltk.download('punkt')
   # Make sure you have the necessary NLTK data downloaded
   nltk.download('averaged_perceptron_tagger')
 
   df_clean['complaint_POS_removed'] = pd.DataFrame(df_clean['complaints'].apply(lambda x: '\n'.join(pos_tag(sent) for sent in x.split('\n'))))
-  # Store df_clean2 for later use
+  # Store df_clean for later use
   df_clean.to_csv('df_clean_v1.csv', index=False)
 
 
@@ -366,7 +393,15 @@ df_clean
 # ## The personal details of customer has been masked in the dataset with xxxx. Let's remove the masked text as this will be of no use for our analysis
 
 # %%
-df_clean['complaints_lemmatized'] = df_clean['complaints_lemmatized'].str.replace(r'xxxx*','', regex =True)
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].str.replace(r'xxxx*','', regex =True)
+
+# %%
+# Replace NaN values with an empty string
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
+# Removing leading/trailing whitespace and empty sentences
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].apply(lambda x: '\n'.join(sent.strip() for sent in x.split('\n') if sent.strip() != ''))
+# Removing extra spaces between words.
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].apply(lambda x: '\n'.join(' '.join(word.strip() for word in sent.split() if word.strip()!= '') for sent in x.split('\n') if sent.strip()!= ''))
 
 # %%
 #All masked texts has been removed
@@ -388,13 +423,13 @@ df_clean
 # Write your code here to visualise the data according to the 'Complaint' character length
 
 # Create a new column 'complaint_length' that contains the length of each complaint
-df_clean['complaint_length'] = df_clean['complaints_lemmatized'].apply(len)
+complaint_length = df_clean['complaints_lemmatized'].apply(len)
 
 # Set the figure size
 plt.figure(figsize=(13, 5))
 
 # Plot a histogram of the complaint lengths
-sns.histplot(df_clean['complaint_length'], edgecolor='white', bins=50, alpha=0.55, kde=True)
+sns.histplot(complaint_length, edgecolor='white', bins=50, alpha=0.55, kde=True)
 plt.xlabel('Complaint Length')
 plt.ylabel('Frequency')
 plt.title('Distribution of Complaint Lengths')
@@ -410,11 +445,8 @@ plt.show()
 # Get the list of English stop words
 stop_words = nlp.Defaults.stop_words
 
-# Replace NaN values with an empty string
-df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
-
 # Create a new column with stop words removed
-df_clean['complaint_POS_removed_clean'] = df_clean['complaint_POS_removed'].apply(lambda x: ' '.join(word for word in x.split() if word not in stop_words))
+df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].apply(lambda x: ' '.join(word for word in x.split() if word not in stop_words))
 
 
 # %%
@@ -422,7 +454,7 @@ df_clean['complaint_POS_removed_clean'] = df_clean['complaint_POS_removed'].appl
 
 from wordcloud import WordCloud
 # Combine all the complaints into a single string
-all_complaints = ' '.join(df_clean['complaint_POS_removed_clean'])
+all_complaints = ' '.join(df_clean['complaint_POS_removed'])
 
 # Create a WordCloud object
 wordcloud = WordCloud(width=800, height=400, max_words=40).generate(all_complaints)
@@ -436,7 +468,28 @@ plt.show()
 
 # %%
 #Removing -PRON- from the text corpus
-df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].str.replace('-PRON-', '')
+# df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].str.replace('-PRON-', '')
+if os.path.isfile('df_clean_v2.csv'):
+  #tag remote collab
+  df = pd.read_csv('df.csv')
+  # load df_clean
+  df_clean = pd.read_csv('df_clean_v2.csv')
+  if 'Unnamed: 0' in df_clean.columns:
+    df_clean.drop('Unnamed: 0', axis=1, inplace=True)
+else:
+    #tag remote collab
+    df = pd.read_csv('df.csv')
+    # Define a function to replace a token
+    def remove_PRON(sent):
+        spacy.prefer_gpu()
+        doc = nlp(sent)
+        return ' '.join([token.text for token in doc if token.pos_ !='PRON'])
+
+    # Apply the function to the 'complaint_POS_removed' column
+    df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].apply(remove_PRON)
+
+    df_clean.to_csv('df_clean_v2.csv', index=False)
+
 
 # %% [markdown]
 # #### Find the top unigrams,bigrams and trigrams by frequency among all the complaints after processing the text.
@@ -446,7 +499,7 @@ df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].str.replace('-PR
 # - __Bigram__ means taking two words at a time.
 # - __Trigram__ means taking three words at a time. 
 #
-# link: `https://www.analyticsvidhya.com/blog/2021/09/what-are-n-grams-and-how-to-implement-them-in-python/`
+# Source: `https://www.analyticsvidhya.com/blog/2021/09/what-are-n-grams-and-how-to-implement-them-in-python/`
 
 # %%
 #Write your code here to find the top 30 unigram frequency among the complaints in the cleaned datafram(df_clean). 
