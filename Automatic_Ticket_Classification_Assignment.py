@@ -309,6 +309,9 @@ if os.path.isfile('df_clean.csv'):
     if 'Unnamed: 0' in df_clean.columns:
         df_clean.drop('Unnamed: 0', axis=1, inplace=True)
 else:    
+    #tag remote collab
+    df = pd.read_csv('df.csv')
+    
     #Create a dataframe('df_clean') that will have only the complaints and the lemmatized complaints 
     df_clean = pd.DataFrame()
 
@@ -327,6 +330,17 @@ print(df_clean['complaints_lemmatized'][0])
 # %%
 df_clean
 
+
+# %%
+def pos_tag(text):
+    # write your code here
+    tokens = nltk.word_tokenize(text)
+    pos_tags = nltk.pos_tag(tokens)
+    #this column should contain lemmatized text with all the words removed which have tags other than NN[tag == "NN"].
+    # return lemmatize(' '.join([word for word, tag in pos_tags if tag =='NN']))
+    return lemmatize(' '.join([word for word, tag in pos_tags if tag.startswith('NN')]))
+
+
 # %%
 #Write your function to extract the POS tags 
   
@@ -339,21 +353,23 @@ else:
   # Make sure you have the necessary NLTK data downloaded
   nltk.download('averaged_perceptron_tagger')
 
-  def pos_tag(text):
-    # write your code here
-    tokens = nltk.word_tokenize(text)
-    pos_tags = nltk.pos_tag(tokens)
-    #this column should contain lemmatized text with all the words removed which have tags other than NN[tag == "NN"].
-    # return lemmatize(' '.join([word for word, tag in pos_tags if tag =='NN']))
-    return lemmatize(' '.join([word for word, tag in pos_tags if tag.startswith('NN')]))
-
   df_clean['complaint_POS_removed'] = pd.DataFrame(df_clean['complaints'].apply(lambda x: '\n'.join(pos_tag(sent) for sent in x.split('\n'))))
   # Store df_clean2 for later use
-  df_clean.to_csv('df_clean.csv', index=False)
+  df_clean.to_csv('df_clean_v1.csv', index=False)
 
 
 # %%
 #The clean dataframe should now contain the raw complaint, lemmatized complaint and the complaint after removing POS tags.
+df_clean
+
+# %% [markdown]
+# ## The personal details of customer has been masked in the dataset with xxxx. Let's remove the masked text as this will be of no use for our analysis
+
+# %%
+df_clean['complaints_lemmatized'] = df_clean['complaints_lemmatized'].str.replace(r'xxxx*','', regex =True)
+
+# %%
+#All masked texts has been removed
 df_clean
 
 # %% [markdown]
@@ -425,12 +441,33 @@ df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].str.replace('-PR
 # %% [markdown]
 # #### Find the top unigrams,bigrams and trigrams by frequency among all the complaints after processing the text.
 
+# %% [markdown]
+# - __Unigram__ means taking only one word at a time.
+# - __Bigram__ means taking two words at a time.
+# - __Trigram__ means taking three words at a time. 
+#
+# link: `https://www.analyticsvidhya.com/blog/2021/09/what-are-n-grams-and-how-to-implement-them-in-python/`
+
 # %%
 #Write your code here to find the top 30 unigram frequency among the complaints in the cleaned datafram(df_clean). 
+import collections
+
+# Assuming 'complaint_POS_removed_clean' is the column in df_clean that contains the cleaned complaints
+complaints = df_clean['complaint_POS_removed_clean'].str.split().sum()
+
+# Count the frequency of each word
+word_counts = collections.Counter(complaints)
+
+# Get the top 30 most common words
+top_30_words = word_counts.most_common(30)
+
+print(top_30_words)
+
 
 
 # %%
 #Print the top 10 words in the unigram frequency
+
 
 
 # %%
@@ -446,16 +483,6 @@ df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].str.replace('-PR
 
 # %%
 #Print the top 10 words in the trigram frequency
-
-# %% [markdown]
-# ## The personal details of customer has been masked in the dataset with xxxx. Let's remove the masked text as this will be of no use for our analysis
-
-# %%
-df_clean['Complaint_clean'] = df_clean['Complaint_clean'].str.replace('xxxx','')
-
-# %%
-#All masked texts has been removed
-df_clean
 
 # %% [markdown]
 # ## Feature Extraction
