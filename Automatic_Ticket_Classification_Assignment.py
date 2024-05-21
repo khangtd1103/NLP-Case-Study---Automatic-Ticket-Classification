@@ -322,6 +322,8 @@ def lemmatize(sent):
 
 # %%
 if os.path.isfile('df_clean.csv'):
+    #tag remote collab
+    df = pd.read_csv('df.csv')
     # load df_clean
     df_clean = pd.read_csv('df_clean.csv')
 else:
@@ -364,6 +366,8 @@ if os.path.isfile('df_clean_v1.csv'):
   df = pd.read_csv('df.csv')
   # load df_clean
   df_clean = pd.read_csv('df_clean_v1.csv')
+  # Replace NaN values with an empty string
+  df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
 else:
   #tag remote collab
   df = pd.read_csv('df.csv')
@@ -375,6 +379,8 @@ else:
   nltk.download('averaged_perceptron_tagger')
 
   df_clean['complaint_POS_removed'] = pd.DataFrame(df_clean['complaints'].apply(lambda x: '\n'.join(pos_tag(sent) for sent in x.split('\n'))))
+  # Replace NaN values with an empty string
+  df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
   # Store df_clean for later use
   df_clean.to_csv('df_clean_v1.csv', index=False)
 
@@ -470,21 +476,29 @@ if os.path.isfile('df_clean_v2.csv'):
   df = pd.read_csv('df.csv')
   # load df_clean
   df_clean = pd.read_csv('df_clean_v2.csv')
+  # Replace NaN values with an empty string
+  df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
+  df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
 else:
-    #tag remote collab
-    df = pd.read_csv('df.csv')
-    # Define a function to replace a token
-    def remove_PRON(sent):
-        spacy.prefer_gpu()
-        doc = nlp(sent)
-        return ' '.join([token.text for token in doc if token.pos_ !='PRON'])
+  #tag remote collab
+  df = pd.read_csv('df.csv')
+  # load df_clean    
+  df_clean = pd.read_csv('df_clean_v1.csv')
+  # Replace NaN values with an empty string
+  df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
+  
+  # Define a function to replace a token
+  def remove_PRON(sent):
+    spacy.prefer_gpu()
+    doc = nlp(sent)
+    return ' '.join([token.text for token in doc if token.pos_ !='PRON'])
 
-    # Apply the function to the 'complaint_POS_removed' column
-    df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].apply(remove_PRON)
-    # Replace NaN values with an empty string
-    df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
+  # Apply the function to the 'complaint_POS_removed' column
+  df_clean['Complaint_clean'] = df_clean['complaint_POS_removed'].apply(remove_PRON)
+  # Replace NaN values with an empty string
+  df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
 
-    df_clean.to_csv('df_clean_v2.csv', index=False)
+  df_clean.to_csv('df_clean_v2.csv', index=False)
 
 
 # %% [markdown]
@@ -496,11 +510,6 @@ else:
 # - __Trigram__ means taking three words at a time. 
 #
 # Source: `https://www.analyticsvidhya.com/blog/2021/09/what-are-n-grams-and-how-to-implement-them-in-python/`
-
-# %%
-#tag delete
-# Replace NaN values with an empty string
-df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
 
 # %%
 #Write your code here to find the top 30 unigram frequency among the complaints in the cleaned dataframe(df_clean). 
@@ -581,11 +590,14 @@ tfidf = TfidfVectorizer(max_df = 0.95, min_df = 2)
 
 # %%
 #Write your code here to create the Document Term Matrix by transforming the complaints column present in df_clean.
+
+# Fit the TfidfVectorizer to the complaints column in df_clean and transform it into a Document Term Matrix (dtm)
 dtm = tfidf.fit_transform(df_clean['Complaint_clean']) 
+# dtm now holds the Document Term Matrix, which is a numerical representation of the text data
 
 
 # %%
-dtm.shape
+dtm.shape # Each row represents a document, and each column represents a word in the vocabulary
 
 # %% [markdown]
 # ## Topic Modelling using NMF
@@ -611,22 +623,22 @@ from sklearn.decomposition import NMF
 
 # %%
 #Load your nmf_model with the n_components i.e 5
-num_topics = 5#write the value you want to test out
+num_topics = 5 #write the value you want to test out
 
 #keep the random_state =40
 nmf_model = NMF(n_components=num_topics, random_state =40) #write your code here
-H = nmf_model.fit_transform(dtm)
 
 
 # %%
-W = nmf_model.fit(dtm)
+W = nmf_model.fit_transform(dtm)
 H = nmf_model.components_
 len(tfidf.get_feature_names_out())
 
 # %%
 #Print the Top15 words for each of the topics
 words = np.array(tfidf.get_feature_names_out())
-topic_words = pd.DataFrame(np.zeros((num_topics, 15)), index=[f'Topic {i + 1}' for i in range(num_topics)], columns=[f'Word {i + 1}' for i in range(15)]).astype(str)
+topic_words = pd.DataFrame(np.zeros((num_topics, 15)), index=[f'Topic {i + 1}' for i in range(num_topics)], 
+                           columns=[f'Word {i + 1}' for i in range(15)]).astype(str)
 
 for i in range(num_topics):
     ix = H[i].argsort()[::-1][:15]
@@ -635,15 +647,82 @@ for i in range(num_topics):
 topic_words
 
 
+# %% magic_args="echo 'skipped'" language="script"
+# #Load your nmf_model with the n_components i.e 5
+# if os.path.isfile('df_topic_words.csv'):
+#     df = pd.read_csv('df.csv')
+#     # load df_clean
+#     df_clean = pd.read_csv('df_clean_v2.csv')
+#     # Replace NaN values with an empty string
+#     df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
+#     df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
+#     
+#     # load df_topic_words
+#     df_topic_words = pd.read_csv('df_topic_words.csv')
+# else: 
+#     df = pd.read_csv('df.csv')
+#     # load df_clean
+#     df_clean = pd.read_csv('df_clean_v2.csv')
+#     # Replace NaN values with an empty string
+#     df_clean['Complaint_clean'] = df_clean['Complaint_clean'].fillna('')
+#     df_clean['complaint_POS_removed'] = df_clean['complaint_POS_removed'].fillna('')
+#     
+#     from tqdm import tqdm
+#     df_topic_words = pd.DataFrame(columns=['num_topics']+[f'Word {i + 1}' for i in range(15)]).astype(str)
+#     num_topics_list = range(5,20+1)
+#     for i in tqdm(num_topics_list):
+#         num_topics = i #write the value you want to test out
+#
+#         #keep the random_state =40
+#         nmf_model = NMF(n_components=num_topics, random_state =40) #write your code here
+#         # Fit the NMF model to the document-term matrix (dtm) and transform it into a matrix of topic weights (W)
+#         W = nmf_model.fit_transform(dtm) # shape (20897, 5)
+#         # Get the topic weights for each topic
+#         # This is a matrix where each row represents a topic, and each column represents a word in the vocabulary
+#         H = nmf_model.components_ # shape (5, 7406)
+#         len(tfidf.get_feature_names_out())
+#
+#         #Print the Top15 words for each of the topics
+#
+#         # vocabulary list
+#         words = np.array(tfidf.get_feature_names_out()) # shape(7406,)
+#         topic_words = pd.DataFrame(np.zeros((num_topics, 16)), index=[f'Topic {i + 1}' for i in range(num_topics)], 
+#                             columns=['num_topics']+[f'Word {i + 1}' for i in range(15)]).astype(str)
+#
+#         for i in range(num_topics):
+#             # Get the indices of the top 15 words for the current topic
+#             ix = H[i].argsort()[::-1][:15] # shape(15,)
+#             # Assign the top 15 words to the current topic in the topic_words DataFrame
+#             topic_words.iloc[i] = [str(num_topics)] + [str(word) for word in words[ix]]
+#
+#         df_topic_words = pd.concat([df_topic_words, topic_words])
+#     display(df_topic_words.head())
+#     df_topic_words.to_csv('df_topic_words.csv', index=False)
+
+# %% magic_args="echo 'skipped'" language="script"
+# # find num_topics that has both 'theft' and 'fraud'
+# words_to_filter = ['theft', 'fraud']  # list of words to filter by
+# df_topic_words_filtered = df_topic_words[df_topic_words.apply(lambda row: all(word in row.values for word in words_to_filter), axis=1)]
+#
+
 # %%
 #Create the best topic for each complaint in terms of integer value 0,1,2,3 & 4
+'''num_topics = 5 #write the value you want to test out
 
+#keep the random_state =40
+nmf_model = NMF(n_components=num_topics, random_state =40) #write your code here'''
 
+# Get the topic weights for each document
+W = nmf_model.fit_transform(dtm)
+
+# Get the topic with the highest weight for each document
+best_topics = W.argmax(axis=1)
 
 # %%
-#Assign the best topic to each of the cmplaints in Topic Column
-
-df_clean['Topic'] = #write your code to assign topics to each rows.
+#Assign the best topic to each of the complaints in Topic Column
+topic_labels = {0: 'Bank account services', 1: 'Credit card / Prepaid card', 2: 'Others', 3: 'Theft/Dispute reporting', 4: 'Mortgages/loans'}
+# df_clean['Topic'] = pd.Series(best_topics).map(topic_labels) #write your code to assign topics to each rows.
+df_clean.loc[:,'Topic'] = pd.Series(best_topics) #write your code to assign topics to each rows.
 
 # %%
 df_clean.head()
@@ -664,7 +743,7 @@ df_clean.sort_values('Topic')
 # %%
 #Create the dictionary of Topic names and Topics
 
-Topic_names = {   }
+Topic_names = {0: 'Bank account services', 1: 'Credit card / Prepaid card', 2: 'Mortgages/loans', 3: 'Theft/Dispute reporting', 4: 'Others'}
 #Replace Topics with Topic Names
 df_clean['Topic'] = df_clean['Topic'].map(Topic_names)
 
@@ -677,16 +756,6 @@ df_clean
 # You have now build the model to create the topics for each complaints.Now in the below section you will use them to classify any new complaints.
 #
 # Since you will be using supervised learning technique we have to convert the topic names to numbers(numpy arrays only understand numbers)
-
-# %%
-#Create the dictionary again of Topic names and Topics
-
-Topic_names = {   }
-#Replace Topics with Topic Names
-df_clean['Topic'] = df_clean['Topic'].map(Topic_names)
-
-# %%
-df_clean
 
 # %%
 #Keep the columns"complaint_what_happened" & "Topic" only in the new dataframe --> training_data
