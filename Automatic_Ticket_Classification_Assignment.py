@@ -61,7 +61,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from pprint import pprint
 
 import os
-from IPython.display import display
+
 # %% [markdown]
 # ## Loading the data
 # 
@@ -733,8 +733,6 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import classification_report, accuracy_score
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV
 
 # %%
 # Label encoding for topics
@@ -829,5 +827,26 @@ results_df
 # With an accuracy of approximately `0.93`, __Logistic Regression__ demonstrates its effectiveness in classifying complaints into predefined topics.
 # 
 # __Logistic Regression__ emerged as the top-performing model in terms of accuracy, there's potential for optimization and refinement in Decision Tree and Random Forest models to enhance their effectiveness in topic classification of complaints.
+
+# %% [markdown]
+# #### Model Inference
+
+# %%
+import random
+
+# Select 10 random texts from training_data['complaint_what_happened']
+random_texts = random.sample(list(training_data['complaint_what_happened']), 10)
+
+# Convert the random texts to TF-IDF vectors
+random_texts_tfidf = tfidf_transformer.transform(count_vect.transform(random_texts))
+
+# Use the logistic regression model to predict the topics
+predicted_topics = log_reg.predict(random_texts_tfidf)
+
+# Print the predicted topics
+for i, text in enumerate(random_texts):
+    print(f"Text: {text}")
+    print(f"Predicted Topic: {label_encoder.inverse_transform([predicted_topics[i]])[0]}")
+    print()
 
 
